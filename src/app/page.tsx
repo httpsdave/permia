@@ -94,16 +94,20 @@ export default function Home() {
   // Snapped wheel/trackpad scrolling
   const handleWheel = (e: React.WheelEvent) => {
     const now = Date.now();
-    if (now - lastScrollTime.current < 750) return; // Smooth scroll pacing
+    
+    // Reduce throttle time significantly for a more responsive feel, 
+    // while still preventing rapid fire from trackpads.
+    if (now - lastScrollTime.current < 250) return; 
 
-    const threshold = 15;
+    const threshold = 10;
     const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
 
     if (Math.abs(delta) > threshold) {
       if (delta > 0) {
-        nextImage();
+        // When scrolling down, we just increment. The infinite math handles the rest.
+        setActiveIndex((prev) => prev + 1);
       } else {
-        prevImage();
+        setActiveIndex((prev) => prev - 1);
       }
       lastScrollTime.current = now;
     }
@@ -135,12 +139,17 @@ export default function Home() {
     }
   };
 
-  // Calculate dynamic container translation for centermost snapping in continuous row
-  const gapVal = layoutMode === 1 ? 1.8 : 2.0; // 1.8vw in layout 1, 2.0vw in layout 2
-  const activeVal = layoutMode === 1 ? 46 : 26; // 46vw active, 26vw in filmstrip
-  const collapsedVal = layoutMode === 1 ? 8.5 : 26; // 8.5vw collapsed, 26vw in filmstrip
+  // Dynamic dimensions for calculation
+  const gapVal = layoutMode === 1 ? 1.8 : 2.0; 
+  const activeVal = layoutMode === 1 ? 46 : 26; 
+  const collapsedVal = layoutMode === 1 ? 8.5 : 26; 
   
-  const containerX = `calc(50vw - (${activeIndex} * (${collapsedVal}vw + ${gapVal}vw) + ${activeVal / 2}vw))`;
+  // Calculate relative offset in vw from the center
+  const getOffsetVw = (relIdx: number) => {
+    if (relIdx === 0) return 0;
+    const sign = relIdx > 0 ? 1 : -1;
+    return sign * ((activeVal / 2) + gapVal + (Math.abs(relIdx) - 1) * (collapsedVal + gapVal) + (collapsedVal / 2));
+  };
 
   return (
     <main 
@@ -187,51 +196,54 @@ export default function Home() {
       </svg>
 
       {/* Immersive Gallery Section */}
-      <div className="flex-grow flex items-center relative w-full h-[66vh] md:h-[68vh] my-auto overflow-visible">
-        <div className="relative w-full flex items-center overflow-visible">
-          {/* Continuous sliding gallery row containing all 22 items */}
-          <motion.div
-            className="flex items-center overflow-visible"
-            animate={{
-              x: containerX
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 60, // Heavy, luxury-portfolio spring physics
-              damping: 18
-            }}
-            style={{
-              gap: `${gapVal}vw`
-            }}
-          >
-            {galleryItems.map((item, idx) => {
-              const isActive = idx === activeIndex;
-              const isHovered = hoveredIdx === idx;
+      <div className="flex-grow flex items-center relative w-full h-[66vh] md:h-[68vh] my-auto overflow-hidden">
+        <div className="relative w-full flex items-center h-full">
+          {/* Infinite sliding gallery using absolute positioning */}
+          {galleryItems.map((item, idx) => {
+            // Determine shortest path relative index for infinite loop
+            const normalizedActive = ((activeIndex % totalImages) + totalImages) % totalImages;
+            let relativeIdx = idx - normalizedActive;
+            
+            if (relativeIdx > totalImages / 2) relativeIdx -= totalImages;
+            if (relativeIdx < -totalImages / 2) relativeIdx += totalImages;
 
-              return (
-                <motion.div
-                  key={`carousel-item-${item.id}`}
-                  className="relative rounded-none overflow-hidden h-[460px] md:h-[530px] lg:h-[550px] flex-shrink-0 cursor-pointer group"
-                  initial={false}
-                  animate={{
-                    width: layoutMode === 1 
-                      ? (isActive ? "46vw" : "8.5vw") 
-                      : "26vw",
-                    minWidth: layoutMode === 1
-                      ? (isActive ? "320px" : "80px")
-                      : "220px",
-                    maxWidth: layoutMode === 1
-                      ? (isActive ? "880px" : "150px")
-                      : "350px",
-                    // Ambient opacity transitions in filmstrip
-                    opacity: layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.45),
-                    scale: layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.95),
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 60,
-                    damping: 18,
-                  }}
+            const isActive = relativeIdx === 0;
+            const isHovered = hoveredIdx === idx;
+            
+            // Hide items far off-screen to prevent visible flying during wrap-around
+            const isVisible = Math.abs(relativeIdx) <= 5;
+            
+            // Base opacity rules
+            let targetOpacity = layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.45);
+            if (!isVisible) targetOpacity = 0;
+
+            return (
+              <motion.div
+                key={`carousel-item-${item.id}`}
+                className="absolute top-1/2 -translate-y-1/2 rounded-none overflow-hidden h-[460px] md:h-[530px] lg:h-[550px] flex-shrink-0 cursor-pointer group"
+                initial={false}
+                animate={{
+                  left: "50%",
+                  x: `calc(${getOffsetVw(relativeIdx)}vw - 50%)`,
+                  width: layoutMode === 1 
+                    ? (isActive ? "46vw" : "8.5vw") 
+                    : "26vw",
+                  minWidth: layoutMode === 1
+                    ? (isActive ? "320px" : "80px")
+                    : "220px",
+                  maxWidth: layoutMode === 1
+                    ? (isActive ? "880px" : "150px")
+                    : "350px",
+                  opacity: targetOpacity,
+                  scale: layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.95),
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 60,
+                  damping: 18,
+                  // Disable transition if invisible to allow instant off-screen wrap
+                  opacity: { duration: 0.2 }
+                }}
                   onClick={() => {
                     if (activeIndex !== idx) {
                       setActiveIndex(idx);
@@ -290,9 +302,8 @@ export default function Home() {
                 </motion.div>
               );
             })}
-          </motion.div>
+          </div>
         </div>
-      </div>
 
       {/* Low-spacing Footer (Pushed tightly to the bottom) */}
       <footer className="w-full px-6 md:px-12 flex justify-between items-end bg-transparent pb-3 z-10">
@@ -300,22 +311,22 @@ export default function Home() {
         <div className="flex flex-col min-h-[70px] justify-end">
           <AnimatePresence mode="wait">
             <motion.div
-              key={`text-${activeIndex}`}
+              key={`text-${((activeIndex % totalImages) + totalImages) % totalImages}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
               <h2 className="text-base md:text-lg font-sans font-bold text-[#111111] leading-tight tracking-wide">
-                {galleryItems[activeIndex].title}
+                {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].title}
               </h2>
-              {galleryItems[activeIndex].subtitle && (
+              {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].subtitle && (
                 <p className="text-xs md:text-sm font-sans font-semibold text-[#111111]/70 leading-snug mt-0.5">
-                  {galleryItems[activeIndex].subtitle}
+                  {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].subtitle}
                 </p>
               )}
               <p className="text-[10px] md:text-[11px] font-sans tracking-[0.2em] font-semibold text-[#111111]/45 mt-1 md:mt-2 uppercase">
-                {galleryItems[activeIndex].date} &mdash; {galleryItems[activeIndex].category}
+                {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].date} &mdash; {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].category}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -326,7 +337,7 @@ export default function Home() {
           {/* Numbers: current index (dim) and total count (bold) */}
           <div className="flex items-baseline gap-3 text-xs md:text-sm font-sans tracking-widest">
             <span className="text-[#111111]/35 font-semibold transition-opacity duration-300">
-              {activeIndex + 1}
+              {(((activeIndex % totalImages) + totalImages) % totalImages) + 1}
             </span>
             <span className="text-[#111111] font-bold">
               {totalImages}
