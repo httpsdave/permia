@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import LiquidDistortionCanvas from '@/components/LiquidDistortionCanvas';
 
 interface GalleryItem {
   id: number;
@@ -44,44 +45,10 @@ export default function Home() {
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [layoutMode, setLayoutMode] = React.useState<1 | 2>(1); // 1 = Focused, 2 = Filmstrip
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
+  const [isMobile, setIsMobile] = React.useState(false);
   
   const lastScrollTime = React.useRef(0);
   const totalImages = galleryItems.length;
-
-  // SVG displacement animation states
-  const timeRef = React.useRef(0);
-  const currentScale = React.useRef(2.0);
-  const targetScale = React.useRef(2.0);
-  
-  const turbulenceRef = React.useRef<SVGFETurbulenceElement>(null);
-  const displacementRef = React.useRef<SVGFEDisplacementMapElement>(null);
-
-  React.useEffect(() => {
-    let animationFrameId: number;
-
-    const animateFilter = () => {
-      timeRef.current += 0.8;
-      
-      // Interpolate displacement scale smoothly
-      currentScale.current += (targetScale.current - currentScale.current) * 0.10;
-
-      if (turbulenceRef.current) {
-        // Continuous slow organic ripple wave frequency
-        const freqX = 0.015 + Math.sin(timeRef.current * 0.010) * 0.002;
-        const freqY = 0.02 + Math.cos(timeRef.current * 0.008) * 0.003;
-        turbulenceRef.current.setAttribute('baseFrequency', `${freqX} ${freqY}`);
-      }
-
-      if (displacementRef.current) {
-        displacementRef.current.setAttribute('scale', currentScale.current.toFixed(2));
-      }
-
-      animationFrameId = requestAnimationFrame(animateFilter);
-    };
-
-    animationFrameId = requestAnimationFrame(animateFilter);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, []);
 
   const nextImage = () => {
     setActiveIndex((prev) => (prev + 1) % totalImages);
@@ -115,34 +82,19 @@ export default function Home() {
 
 
 
-  // Hover displacement triggers and coordinates tracking
+  // Hover displacement triggers
   const handleHoverStart = (idx: number) => {
     setHoveredIdx(idx);
-    targetScale.current = 45.0; // High fluid distortion scale on hover
   };
 
   const handleHoverEnd = () => {
     setHoveredIdx(null);
-    targetScale.current = 2.0; // Ambient subtle wave on hover out
-  };
-
-  // Tracks relative mouse location inside element to update SVG radial mask
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mx = ((e.clientX - rect.left) / rect.width) * 100;
-    const my = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    const grad = document.getElementById('mouse-grad');
-    if (grad) {
-      grad.setAttribute('cx', `${mx}%`);
-      grad.setAttribute('cy', `${my}%`);
-    }
   };
 
   // Dynamic dimensions for calculation
-  const gapVal = layoutMode === 1 ? 1.8 : 2.0; 
-  const activeVal = layoutMode === 1 ? 46 : 26; 
-  const collapsedVal = layoutMode === 1 ? 8.5 : 26; 
+  const gapVal = isMobile ? 3.0 : (layoutMode === 1 ? 1.8 : 2.0); 
+  const activeVal = isMobile ? 75 : (layoutMode === 1 ? 46 : 26); 
+  const collapsedVal = isMobile ? 75 : (layoutMode === 1 ? 8.5 : 26); 
   
   // Calculate relative offset in vw from the center
   const getOffsetVw = (relIdx: number) => {
@@ -156,44 +108,17 @@ export default function Home() {
       className="relative w-screen h-screen h-dvh flex flex-col justify-between pt-28 pb-4 overflow-hidden bg-[#EFF2ED] select-none"
       onWheel={handleWheel}
     >
-      {/* SVG definitions for Masked Cursor Turbulence Liquid Ripple */}
-      <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
-        <defs>
-          {/* Dynamic gradient whose center shifts to track cursor in real time */}
-          <radialGradient id="mouse-grad" cx="50%" cy="50%" r="35%">
-            <stop offset="0%" stopColor="white" stopOpacity="1.0" />
-            <stop offset="60%" stopColor="white" stopOpacity="0.75" />
-            <stop offset="100%" stopColor="white" stopOpacity="0.0" />
-          </radialGradient>
-          
-          {/* A concrete rect graphic to act as the displacement mask source */}
-          <rect id="mouse-mask-shape" width="100%" height="100%" fill="url(#mouse-grad)" />
-          
-          <filter id="liquid-marble-filter">
-            <feTurbulence 
-              ref={turbulenceRef}
-              type="fractalNoise" 
-              baseFrequency="0.015 0.02" 
-              numOctaves="3" 
-              result="noise" 
-              seed="1"
-            />
-            
-            {/* Load and multiply the turbulence noise by the cursor shape mask */}
-            <feImage href="#mouse-mask-shape" result="mask" />
-            <feComposite in="noise" in2="mask" operator="in" result="maskedNoise" />
-            
-            <feDisplacementMap 
-              ref={displacementRef}
-              in="SourceGraphic" 
-              in2="maskedNoise" 
-              scale="2.0" 
-              xChannelSelector="R" 
-              yChannelSelector="G" 
-            />
-          </filter>
-        </defs>
-      </svg>
+      {/* Mobile Page Numbers */}
+      {isMobile && (
+        <>
+          <div className="absolute left-6 top-1/2 -translate-y-1/2 z-30 font-sans text-xl md:text-2xl font-bold text-white mix-blend-difference opacity-80 pointer-events-none">
+            {(((activeIndex % totalImages) + totalImages) % totalImages) + 1}
+          </div>
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 z-30 font-sans text-xl md:text-2xl font-bold text-white mix-blend-difference opacity-80 pointer-events-none">
+            {totalImages}
+          </div>
+        </>
+      )}
 
       {/* Immersive Gallery Section */}
       <div className="flex-grow flex items-center relative w-full h-[66vh] md:h-[68vh] my-auto overflow-hidden">
@@ -225,17 +150,23 @@ export default function Home() {
                 animate={{
                   left: "50%",
                   x: `calc(${getOffsetVw(relativeIdx)}vw - 50%)`,
-                  width: layoutMode === 1 
-                    ? (isActive ? "46vw" : "8.5vw") 
-                    : "26vw",
-                  minWidth: layoutMode === 1
-                    ? (isActive ? "320px" : "80px")
-                    : "220px",
-                  maxWidth: layoutMode === 1
-                    ? (isActive ? "880px" : "150px")
-                    : "350px",
+                  width: isMobile
+                    ? "75vw"
+                    : layoutMode === 1 
+                      ? (isActive ? "46vw" : "8.5vw") 
+                      : "26vw",
+                  minWidth: isMobile
+                    ? "240px"
+                    : layoutMode === 1
+                      ? (isActive ? "320px" : "80px")
+                      : "220px",
+                  maxWidth: isMobile
+                    ? "100%"
+                    : layoutMode === 1
+                      ? (isActive ? "880px" : "150px")
+                      : "350px",
                   opacity: targetOpacity,
-                  scale: layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.95),
+                  scale: 1.0,
                 }}
                 transition={{
                   type: "spring",
@@ -251,19 +182,14 @@ export default function Home() {
                   }}
                   onMouseEnter={() => handleHoverStart(idx)}
                   onMouseLeave={handleHoverEnd}
-                  onMouseMove={handleMouseMove}
                 >
-                  {/* Inner element scaled slightly up (1.07x) during hover warp */}
-                  {/* This completely clips out any wobbly edges inside the straight parent container */}
+                  {/* Inner element without the hover zoom scale */}
                   <motion.div 
                     className="w-full h-full relative"
                     animate={{
-                      scale: isHovered ? 1.07 : 1.01
+                      scale: 1.0
                     }}
                     transition={{ duration: 0.4 }}
-                    style={{
-                      filter: isHovered ? 'url(#liquid-marble-filter)' : 'none',
-                    }}
                   >
                     {/* Image */}
                     <div className="absolute inset-0 w-full h-full">
@@ -275,6 +201,10 @@ export default function Home() {
                         className="object-cover"
                         sizes="(max-width: 768px) 100vw, 40vw"
                       />
+                      
+                      {/* WebGL Liquid Distortion Overlay */}
+                      {/* We render this ONLY when the item is mounted, it fades in/out via shader alpha */}
+                      <LiquidDistortionCanvas src={item.src} isHovered={isHovered} isDark={!isActive && layoutMode === 1 && !isMobile} />
                     </div>
 
                     {/* Dark Fluid Marble Overlay for Inactive Images (Layout 1) */}
@@ -282,7 +212,7 @@ export default function Home() {
                       className="absolute inset-0 bg-black pointer-events-none"
                       initial={false}
                       animate={{
-                        opacity: (layoutMode === 1 && !isActive) ? 0.85 : 0
+                        opacity: isMobile ? 0 : (!isActive && layoutMode === 1 ? 0.85 : 0)
                       }}
                       transition={{ duration: 0.4 }}
                     />
@@ -334,8 +264,8 @@ export default function Home() {
 
         {/* Bottom Right: Page Indicators & Layout Toggle */}
         <div className="flex items-center gap-24 md:gap-48 lg:gap-64 pb-1">
-          {/* Numbers: current index (dim) and total count (bold) */}
-          <div className="flex items-baseline gap-3 text-xs md:text-sm font-sans tracking-widest">
+          {/* Numbers: current index (dim) and total count (bold) - Hidden on mobile */}
+          <div className="hidden md:flex items-baseline gap-12 md:gap-20 text-xs md:text-sm font-sans tracking-widest">
             <span className="text-[#111111]/35 font-semibold transition-opacity duration-300">
               {(((activeIndex % totalImages) + totalImages) % totalImages) + 1}
             </span>

@@ -53,7 +53,7 @@ export function Header() {
       </div>
 
       {/* Location - Center aligned */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 text-xs font-syne tracking-[0.3em] font-bold text-[#111111]/45 uppercase">
+      <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 text-xs font-syne tracking-[0.3em] font-bold text-[#111111]/45 uppercase">
         PHILIPPINES
       </div>
 
