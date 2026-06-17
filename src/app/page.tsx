@@ -183,13 +183,20 @@ export default function Home() {
                   onMouseEnter={() => handleHoverStart(idx)}
                   onMouseLeave={handleHoverEnd}
                 >
-                  {/* Inner element without the hover zoom scale */}
+                  {/* Inner element with fixed active-state width to prevent object-cover zooming during slide */}
                   <motion.div 
-                    className="w-full h-full relative"
+                    className="h-full absolute left-1/2 -translate-x-1/2 bg-black"
+                    initial={false}
                     animate={{
-                      scale: 1.0
+                      width: isMobile ? "75vw" : (layoutMode === 1 ? "46vw" : "26vw"),
+                      minWidth: isMobile ? "240px" : (layoutMode === 1 ? "320px" : "220px"),
+                      maxWidth: isMobile ? "100%" : (layoutMode === 1 ? "880px" : "350px"),
                     }}
-                    transition={{ duration: 0.4 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 60,
+                      damping: 18,
+                    }}
                   >
                     {/* Image */}
                     <div className="absolute inset-0 w-full h-full">
@@ -202,9 +209,13 @@ export default function Home() {
                         sizes="(max-width: 768px) 100vw, 40vw"
                       />
                       
-                      {/* WebGL Liquid Distortion Overlay */}
-                      {/* We render this ONLY when the item is mounted, it fades in/out via shader alpha */}
-                      <LiquidDistortionCanvas src={item.src} isHovered={isHovered} isDark={!isActive && layoutMode === 1 && !isMobile} />
+                      {/* WebGL Liquid Distortion & Burn Reveal Overlay */}
+                      <LiquidDistortionCanvas 
+                        src={item.src} 
+                        isHovered={isHovered} 
+                        isDark={!isActive && layoutMode === 1 && !isMobile} 
+                        isRevealed={isActive || layoutMode !== 1} 
+                      />
                     </div>
 
                     {/* Dark Fluid Marble Overlay for Inactive Images (Layout 1) */}
@@ -214,20 +225,20 @@ export default function Home() {
                       animate={{
                         opacity: isMobile ? 0 : (!isActive && layoutMode === 1 ? 0.85 : 0)
                       }}
-                      transition={{ duration: 0.4 }}
+                      transition={{ duration: 1.2, ease: "easeInOut" }}
                     />
                     
-                    {layoutMode === 1 && !isActive && (
-                      <motion.div
-                        className="absolute inset-0 mix-blend-overlay opacity-80 pointer-events-none bg-cover bg-center"
-                        style={{ 
-                          backgroundImage: `url('/images/liquid_marble.png')`,
-                        }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.90 }}
-                        exit={{ opacity: 0 }}
-                      />
-                    )}
+                    <motion.div
+                      className="absolute inset-0 mix-blend-overlay pointer-events-none bg-cover bg-center"
+                      style={{ 
+                        backgroundImage: `url('/images/liquid_marble.png')`,
+                      }}
+                      initial={false}
+                      animate={{ 
+                        opacity: (!isActive && layoutMode === 1) ? 0.90 : 0 
+                      }}
+                      transition={{ duration: 1.2, ease: "easeInOut" }}
+                    />
                   </motion.div>
                 </motion.div>
               );

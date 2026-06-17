@@ -23,6 +23,8 @@ uniform vec2 uImageRes;
 uniform float uIsDark;
 varying vec2 vUv;
 
+uniform float uRevealProgress;
+
 // Classic Perlin noise
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -86,21 +88,49 @@ void main() {
   // Distort UVs
   vec2 distortedUv = uv + displacement * uHover;
   
-  vec4 color = texture2D(uTexture, distortedUv);
+  vec4 texColor = texture2D(uTexture, distortedUv);
   
-  // If it's a "blackbar" (dark overlay), we darken the pixels in the shader
   if (uIsDark > 0.5) {
-    color.rgb *= 0.15; // Darken to match the 0.85 black overlay
+    texColor.rgb *= 0.15; 
   }
   
-  // Fade out slightly when not hovered to transition nicely
-  color.a *= uHover;
+  vec4 finalColor = texColor;
   
-  gl_FragColor = color;
+  // Burn Reveal Logic
+  float distFromCenter = distance(vUv * aspect, vec2(0.5) * aspect);
+  float maxRadius = 1.5;
+  
+  // Shift the radius so 0.0 is completely hidden and 1.0 is completely revealed (fixes after-effect)
+  float currentRadius = -0.1 + uRevealProgress * (maxRadius + 0.2);
+  
+  // Finer, more organic edge using two octaves of noise
+  float edgeNoise = snoise(vUv * 25.0 - uTime * 0.4) * 0.05 
+                  + snoise(vUv * 70.0 - uTime * 0.7) * 0.02;
+                  
+  float edgeDist = distFromCenter - currentRadius + edgeNoise;
+  
+  if (edgeDist > 0.0) {
+      // Unrevealed area - opaque black (no glowing colors)
+      finalColor = vec4(0.0, 0.0, 0.0, 1.0);
+  } else {
+      // Revealed area - transparent unless hovered
+      finalColor.a *= uHover;
+      
+      // Finer, smaller flying black particles (soot/ash) near the inner edge
+      float particleNoise = snoise(vUv * 220.0 + uTime * 2.0);
+      if (edgeDist > -0.12 && particleNoise > 0.4) {
+          float particleAlpha = smoothstep(0.4, 0.7, particleNoise);
+          // Fade particles as they get further from the edge
+          float distFade = smoothstep(-0.12, 0.0, edgeDist);
+          finalColor = mix(finalColor, vec4(0.0, 0.0, 0.0, 1.0), particleAlpha * distFade);
+      }
+  }
+  
+  gl_FragColor = finalColor;
 }
 `;
 
-const LiquidMesh = ({ src, mousePos, isHovered, isDark }: { src: string, mousePos: { x: number, y: number }, isHovered: boolean, isDark: boolean }) => {
+const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialReveal }: { src: string, mousePos: { x: number, y: number }, isHovered: boolean, isDark: boolean, isRevealed: boolean, initialReveal: boolean }) => {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { size } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -121,8 +151,34 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark }: { src: string, mousePo
     uHover: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uImageRes: { value: new THREE.Vector2(1, 1) },
-    uIsDark: { value: isDark ? 1.0 : 0.0 }
+    uIsDark: { value: isDark ? 1.0 : 0.0 },
+    uRevealProgress: { value: initialReveal ? 1.0 : 0.0 }
   }), []);
+
+  useEffect(() => {
+    let startTime = performance.now();
+    let startVal = materialRef.current?.uniforms.uRevealProgress.value ?? (initialReveal ? 1.0 : 0.0);
+    let targetVal = isRevealed ? 1.0 : 0.0;
+    
+    if (startVal === targetVal) return; // No animation needed
+
+    // cubic bezier easing similar to [0.6, 0.05, 0.15, 1]
+    const easeInOut = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    let frameId: number;
+    const animate = (time: number) => {
+      if (!materialRef.current) return;
+      let progress = (time - startTime) / 1600.0; // 1.6s duration
+      if (progress >= 1.0) {
+        materialRef.current.uniforms.uRevealProgress.value = targetVal;
+        return;
+      }
+      materialRef.current.uniforms.uRevealProgress.value = startVal + (targetVal - startVal) * easeInOut(progress);
+      frameId = requestAnimationFrame(animate);
+    };
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [isRevealed]);
 
   useEffect(() => {
     if (texture && materialRef.current) {
@@ -168,22 +224,33 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark }: { src: string, mousePo
   );
 };
 
-export default function LiquidDistortionCanvas({ src, isHovered, isDark = false }: { src: string, isHovered: boolean, isDark?: boolean }) {
+export default function LiquidDistortionCanvas({ src, isHovered, isDark = false, isRevealed = true }: { src: string, isHovered: boolean, isDark?: boolean, isRevealed?: boolean }) {
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
-  const [visible, setVisible] = useState(isHovered);
   
-  // Keep it mounted slightly longer to finish transition
-  useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    if (isHovered) {
-      setVisible(true);
-    } else {
-      timeout = setTimeout(() => setVisible(false), 500); // Wait for transition
-    }
-    return () => clearTimeout(timeout);
-  }, [isHovered]);
+  const [initialReveal, setInitialReveal] = useState(isRevealed);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const prevIsRevealed = useRef(isRevealed);
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (prevIsRevealed.current !== isRevealed) {
+      setInitialReveal(prevIsRevealed.current);
+      setIsTransitioning(true);
+      const timeout = setTimeout(() => {
+        setIsTransitioning(false);
+      }, 1700);
+      prevIsRevealed.current = isRevealed;
+      return () => clearTimeout(timeout);
+    }
+  }, [isRevealed]);
+
+  const needsWebGL = isHovered || isTransitioning;
+  
+  if (!needsWebGL) {
+    if (!isRevealed) {
+      return <div className="absolute inset-0 bg-black z-10" />;
+    }
+    return null;
+  }
 
   return (
     <div 
@@ -197,7 +264,7 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false 
       }}
     >
       <Canvas camera={{ position: [0, 0, 1] }} gl={{ alpha: true }}>
-        <LiquidMesh src={src} mousePos={mousePos} isHovered={isHovered} isDark={isDark} />
+        <LiquidMesh src={src} mousePos={mousePos} isHovered={isHovered} isDark={isDark} isRevealed={isRevealed} initialReveal={initialReveal} />
       </Canvas>
     </div>
   );
