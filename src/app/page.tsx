@@ -47,6 +47,15 @@ export default function Home() {
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
   const [isMobile, setIsMobile] = React.useState(false);
   
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize(); // initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const lastScrollTime = React.useRef(0);
   const totalImages = galleryItems.length;
 
@@ -92,7 +101,7 @@ export default function Home() {
   };
 
   // Dynamic dimensions for calculation
-  const gapVal = isMobile ? 3.0 : (layoutMode === 1 ? 1.8 : 2.0); 
+  const gapVal = isMobile ? 2.0 : (layoutMode === 1 ? 1.8 : 2.0); 
   const activeVal = isMobile ? 75 : (layoutMode === 1 ? 46 : 26); 
   const collapsedVal = isMobile ? 75 : (layoutMode === 1 ? 8.5 : 26); 
   
@@ -136,7 +145,7 @@ export default function Home() {
             const isHovered = hoveredIdx === idx;
             
             // Hide items far off-screen to prevent visible flying during wrap-around
-            const isVisible = Math.abs(relativeIdx) <= 5;
+            const isVisible = Math.abs(relativeIdx) <= 3;
             
             // Base opacity rules
             let targetOpacity = layoutMode === 1 ? 1.0 : (isActive ? 1.0 : 0.45);
@@ -214,31 +223,10 @@ export default function Home() {
                         src={item.src} 
                         isHovered={isHovered} 
                         isDark={!isActive && layoutMode === 1 && !isMobile} 
-                        isRevealed={isActive || layoutMode !== 1} 
+                        isRevealed={isActive || layoutMode !== 1 || isMobile} 
                       />
                     </div>
 
-                    {/* Dark Fluid Marble Overlay for Inactive Images (Layout 1) */}
-                    <motion.div
-                      className="absolute inset-0 bg-black pointer-events-none"
-                      initial={false}
-                      animate={{
-                        opacity: isMobile ? 0 : (!isActive && layoutMode === 1 ? 0.85 : 0)
-                      }}
-                      transition={{ duration: 1.2, ease: "easeInOut" }}
-                    />
-                    
-                    <motion.div
-                      className="absolute inset-0 mix-blend-overlay pointer-events-none bg-cover bg-center"
-                      style={{ 
-                        backgroundImage: `url('/images/liquid_marble.png')`,
-                      }}
-                      initial={false}
-                      animate={{ 
-                        opacity: (!isActive && layoutMode === 1) ? 0.90 : 0 
-                      }}
-                      transition={{ duration: 1.2, ease: "easeInOut" }}
-                    />
                   </motion.div>
                 </motion.div>
               );

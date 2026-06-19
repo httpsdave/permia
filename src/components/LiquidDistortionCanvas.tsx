@@ -4,6 +4,17 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
+// Suppress THREE.Clock deprecation warning caused by react-three-fiber internal usage
+if (typeof window !== 'undefined') {
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes('THREE.Clock: This module has been deprecated')) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+}
+
 const vertexShader = `
 varying vec2 vUv;
 void main() {
@@ -89,11 +100,6 @@ void main() {
   vec2 distortedUv = uv + displacement * uHover;
   
   vec4 texColor = texture2D(uTexture, distortedUv);
-  
-  if (uIsDark > 0.5) {
-    texColor.rgb *= 0.15; 
-  }
-  
   vec4 finalColor = texColor;
   
   // Burn Reveal Logic
@@ -109,9 +115,30 @@ void main() {
                   
   float edgeDist = distFromCenter - currentRadius + edgeNoise;
   
+  // Procedural Dark Liquid Marble
+  vec3 marbleCol = vec3(0.0);
+  if (uRevealProgress < 1.0 || uIsDark > 0.5) {
+      vec2 p = vUv * 3.0; // Zoomed in slightly for larger, calmer waves
+      float t = uTime * 0.03; // Drastically slowed down
+      float d = distance(vUv * aspect, uMouse * aspect);
+      float m = smoothstep(0.5, 0.0, d);
+      p += normalize(vUv - uMouse) * sin(d * 20.0 - uTime * 2.0) * 0.1 * uHover * m;
+      p += vec2(snoise(vUv * 5.0 + uTime * 0.5)) * 0.05 * uHover * m;
+
+      vec2 q = vec2(snoise(p + t), snoise(p + vec2(1.2, 3.4) - t));
+      vec2 r = vec2(snoise(p + q * 2.0 + vec2(3.1, 1.7) + t * 0.5), snoise(p + q * 2.0 + vec2(4.2, 8.5) - t * 0.5));
+      float f = snoise(p + r * 2.0);
+      
+      // More blackness, fewer particles/liquid elements
+      marbleCol = mix(vec3(0.01, 0.01, 0.01), vec3(0.06, 0.06, 0.06), smoothstep(0.2, 0.8, f));
+      
+      float streak = smoothstep(0.85, 1.0, snoise(p + r * 3.0 + t));
+      marbleCol += vec3(0.05) * streak;
+  }
+  
   if (edgeDist > 0.0) {
-      // Unrevealed area - opaque black (no glowing colors)
-      finalColor = vec4(0.0, 0.0, 0.0, 1.0);
+      // Unrevealed area - show dark liquid marble
+      finalColor = vec4(marbleCol, 1.0);
   } else {
       // Revealed area - transparent unless hovered
       finalColor.a *= uHover;
@@ -147,7 +174,7 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialRevea
   const uniforms = useMemo(() => ({
     uTexture: { value: null },
     uTime: { value: 0 },
-    uMouse: { value: new THREE.Vector2(0.5, 0.5) },
+    uMouse: { value: new THREE.Vector2(mousePos.x, 1.0 - mousePos.y) },
     uHover: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uImageRes: { value: new THREE.Vector2(1, 1) },
@@ -189,7 +216,8 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialRevea
 
   useFrame((state) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+      // Use performance.now() to bypass internal R3F state.clock initialization warning
+      materialRef.current.uniforms.uTime.value = performance.now() * 0.001;
       
       // Update resolution
       materialRef.current.uniforms.uResolution.value.set(size.width, size.height);
@@ -226,14 +254,20 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialRevea
 
 export default function LiquidDistortionCanvas({ src, isHovered, isDark = false, isRevealed = true }: { src: string, isHovered: boolean, isDark?: boolean, isRevealed?: boolean }) {
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const [hasMovedCursor, setHasMovedCursor] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isHovered) {
+      setHasMovedCursor(false);
+    }
+  }, [isHovered]);
   
-  const [initialReveal, setInitialReveal] = useState(isRevealed);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const prevIsRevealed = useRef(isRevealed);
 
   useEffect(() => {
     if (prevIsRevealed.current !== isRevealed) {
-      setInitialReveal(prevIsRevealed.current);
       setIsTransitioning(true);
       const timeout = setTimeout(() => {
         setIsTransitioning(false);
@@ -243,29 +277,39 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false,
     }
   }, [isRevealed]);
 
-  const needsWebGL = isHovered || isTransitioning;
+  const needsWebGL = isHovered || isTransitioning || !isRevealed;
+  const activeHover = isHovered && hasMovedCursor;
   
-  if (!needsWebGL) {
-    if (!isRevealed) {
-      return <div className="absolute inset-0 bg-black z-10" />;
-    }
-    return null;
-  }
-
   return (
-    <div 
-      className="absolute inset-0 w-full h-full z-10"
-      onMouseMove={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setMousePos({
-          x: (e.clientX - rect.left) / rect.width,
-          y: (e.clientY - rect.top) / rect.height
-        });
-      }}
-    >
-      <Canvas camera={{ position: [0, 0, 1] }} gl={{ alpha: true }}>
-        <LiquidMesh src={src} mousePos={mousePos} isHovered={isHovered} isDark={isDark} isRevealed={isRevealed} initialReveal={initialReveal} />
-      </Canvas>
-    </div>
+    <>
+      {!isRevealed && !needsWebGL && (
+        <div className="absolute inset-0 bg-black z-10" />
+      )}
+      <div 
+        ref={containerRef}
+        className={`absolute inset-0 w-full h-full z-10 ${needsWebGL ? 'block' : 'hidden'}`}
+        onMouseMove={(e) => {
+          setHasMovedCursor(true);
+          const rect = e.currentTarget.getBoundingClientRect();
+          setMousePos({
+            x: (e.clientX - rect.left) / rect.width,
+            y: (e.clientY - rect.top) / rect.height
+          });
+        }}
+      >
+        {needsWebGL && (
+          <Canvas eventSource={containerRef} camera={{ position: [0, 0, 1] }} gl={{ alpha: true }}>
+            <LiquidMesh 
+              src={src} 
+              mousePos={mousePos} 
+              isHovered={activeHover} 
+              isDark={isDark} 
+              isRevealed={isRevealed} 
+              initialReveal={isTransitioning ? !isRevealed : isRevealed} 
+            />
+          </Canvas>
+        )}
+      </div>
+    </>
   );
 }
