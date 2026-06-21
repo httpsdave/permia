@@ -43,22 +43,22 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 px-6 py-6 md:px-12 md:py-8 flex justify-between items-center text-[#111111] bg-transparent">
       {/* Logo */}
-      <Link href="/" className="text-base font-syne font-bold tracking-[0.3em] uppercase hover:opacity-75 transition-opacity">
+      <Link href="/" className="text-base font-sans font-bold tracking-widest uppercase hover:opacity-75 transition-opacity">
         permia
       </Link>
 
       {/* Clock - Left-Center aligned (around 25% from left) */}
-      <div className="hidden md:block absolute left-[26%] lg:left-[28%] transform -translate-x-1/2 text-xs font-syne tracking-[0.25em] font-bold text-[#111111]/45">
+      <div className="hidden md:block absolute left-[26%] lg:left-[28%] transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold text-[#111111]/45">
         {mounted ? timeStr : '--:-- --'}
       </div>
 
       {/* Location - Center aligned */}
-      <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 text-xs font-syne tracking-[0.3em] font-bold text-[#111111]/45 uppercase">
+      <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold text-[#111111]/45 uppercase">
         PHILIPPINES
       </div>
 
       {/* Nav links */}
-      <nav className="flex space-x-6 md:space-x-8 items-center text-xs font-syne tracking-[0.25em] uppercase font-bold">
+      <nav className="flex space-x-6 md:space-x-8 items-center text-xs font-sans tracking-widest uppercase font-bold">
         <Link 
           href="/" 
           className={`transition-all duration-300 ${

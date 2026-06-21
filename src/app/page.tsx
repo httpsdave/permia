@@ -224,6 +224,7 @@ export default function Home() {
                         isHovered={isHovered} 
                         isDark={!isActive && layoutMode === 1 && !isMobile} 
                         isRevealed={isActive || layoutMode !== 1 || isMobile} 
+                        isVisible={isVisible}
                       />
                     </div>
 

@@ -130,10 +130,10 @@ void main() {
       float f = snoise(p + r * 2.0);
       
       // More blackness, fewer particles/liquid elements
-      marbleCol = mix(vec3(0.01, 0.01, 0.01), vec3(0.06, 0.06, 0.06), smoothstep(0.2, 0.8, f));
+      marbleCol = mix(vec3(0.01, 0.01, 0.01), vec3(0.08, 0.08, 0.08), smoothstep(0.2, 0.8, f));
       
       float streak = smoothstep(0.85, 1.0, snoise(p + r * 3.0 + t));
-      marbleCol += vec3(0.05) * streak;
+      marbleCol += vec3(0.35) * streak;
   }
   
   if (edgeDist > 0.0) {
@@ -157,18 +157,23 @@ void main() {
 }
 `;
 
+const textureCache = new Map<string, THREE.Texture>();
+
 const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialReveal }: { src: string, mousePos: { x: number, y: number }, isHovered: boolean, isDark: boolean, isRevealed: boolean, initialReveal: boolean }) => {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { size } = useThree();
-  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [texture, setTexture] = useState<THREE.Texture | null>(() => textureCache.get(src) || null);
 
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load(src, (tex) => {
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      setTexture(tex);
-    });
+    if (!textureCache.has(src)) {
+      const loader = new THREE.TextureLoader();
+      loader.load(src, (tex) => {
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        textureCache.set(src, tex);
+        setTexture(tex);
+      });
+    }
   }, [src]);
 
   const uniforms = useMemo(() => ({
@@ -195,7 +200,10 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialRevea
     let frameId: number;
     const animate = (time: number) => {
       if (!materialRef.current) return;
-      let progress = (time - startTime) / 1600.0; // 1.6s duration
+      
+      const duration = targetVal === 0.0 ? 600.0 : 1600.0; // Faster unreveal
+      let progress = (time - startTime) / duration;
+      
       if (progress >= 1.0) {
         materialRef.current.uniforms.uRevealProgress.value = targetVal;
         return;
@@ -252,7 +260,7 @@ const LiquidMesh = ({ src, mousePos, isHovered, isDark, isRevealed, initialRevea
   );
 };
 
-export default function LiquidDistortionCanvas({ src, isHovered, isDark = false, isRevealed = true }: { src: string, isHovered: boolean, isDark?: boolean, isRevealed?: boolean }) {
+export default function LiquidDistortionCanvas({ src, isHovered, isDark = false, isRevealed = true, isVisible = true }: { src: string, isHovered: boolean, isDark?: boolean, isRevealed?: boolean, isVisible?: boolean }) {
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [hasMovedCursor, setHasMovedCursor] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -263,21 +271,24 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false,
     }
   }, [isHovered]);
   
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isTransitioningState, setIsTransitioning] = useState(false);
   const prevIsRevealed = useRef(isRevealed);
+  
+  const isTransitioning = isTransitioningState || prevIsRevealed.current !== isRevealed;
 
   useEffect(() => {
     if (prevIsRevealed.current !== isRevealed) {
       setIsTransitioning(true);
+      const timeoutDuration = isRevealed ? 1700 : 700;
       const timeout = setTimeout(() => {
         setIsTransitioning(false);
-      }, 1700);
+      }, timeoutDuration);
       prevIsRevealed.current = isRevealed;
       return () => clearTimeout(timeout);
     }
   }, [isRevealed]);
 
-  const needsWebGL = isHovered || isTransitioning || !isRevealed;
+  const needsWebGL = isVisible && (isHovered || isTransitioning || !isRevealed);
   const activeHover = isHovered && hasMovedCursor;
   
   return (
@@ -298,14 +309,14 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false,
         }}
       >
         {needsWebGL && (
-          <Canvas eventSource={containerRef} camera={{ position: [0, 0, 1] }} gl={{ alpha: true }}>
+          <Canvas eventSource={containerRef} camera={{ position: [0, 0, 1] }} gl={{ alpha: true, antialias: false, powerPreference: "high-performance" }} dpr={[1, 1.5]}>
             <LiquidMesh 
               src={src} 
               mousePos={mousePos} 
               isHovered={activeHover} 
               isDark={isDark} 
               isRevealed={isRevealed} 
-              initialReveal={isTransitioning ? !isRevealed : isRevealed} 
+              initialReveal={prevIsRevealed.current} 
             />
           </Canvas>
         )}
