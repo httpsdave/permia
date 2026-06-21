@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter, Syne } from "next/font/google";
 import { Header } from "../components/Header";
+import { LoadingScreen } from "../components/LoadingScreen";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body
         className={`${cormorant.variable} ${inter.variable} ${syne.variable} font-base antialiased bg-[#EFF2ED] text-[#111111] overflow-hidden w-screen h-screen`}
       >
+        <LoadingScreen />
         <Header />
         {children}
       </body>
