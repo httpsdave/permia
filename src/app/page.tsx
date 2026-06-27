@@ -43,6 +43,7 @@ const galleryItems: GalleryItem[] = [
 
 export default function Home() {
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [scrollDirection, setScrollDirection] = React.useState<1 | -1>(1);
   const [layoutMode, setLayoutMode] = React.useState<1 | 2>(1); // 1 = Focused, 2 = Filmstrip
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
   const [isMobile, setIsMobile] = React.useState(false);
@@ -60,10 +61,12 @@ export default function Home() {
   const totalImages = galleryItems.length;
 
   const nextImage = () => {
+    setScrollDirection(1);
     setActiveIndex((prev) => (prev + 1) % totalImages);
   };
 
   const prevImage = () => {
+    setScrollDirection(-1);
     setActiveIndex((prev) => (prev - 1 + totalImages) % totalImages);
   };
 
@@ -80,9 +83,11 @@ export default function Home() {
 
     if (Math.abs(delta) > threshold) {
       if (delta > 0) {
+        setScrollDirection(1);
         // When scrolling down, we just increment. The infinite math handles the rest.
         setActiveIndex((prev) => prev + 1);
       } else {
+        setScrollDirection(-1);
         setActiveIndex((prev) => prev - 1);
       }
       lastScrollTime.current = now;
@@ -186,7 +191,8 @@ export default function Home() {
                 }}
                   onClick={() => {
                     if (activeIndex !== idx) {
-                      setActiveIndex(idx);
+                      setScrollDirection(relativeIdx > 0 ? 1 : -1);
+                      setActiveIndex(activeIndex + relativeIdx);
                     }
                   }}
                   onMouseEnter={() => handleHoverStart(idx)}
@@ -218,14 +224,25 @@ export default function Home() {
                         sizes="(max-width: 768px) 100vw, 40vw"
                       />
                       
-                      {/* WebGL Liquid Distortion & Burn Reveal Overlay */}
-                      <LiquidDistortionCanvas 
-                        src={item.src} 
-                        isHovered={isHovered} 
-                        isDark={!isActive && layoutMode === 1 && !isMobile} 
-                        isRevealed={isActive || layoutMode !== 1 || isMobile} 
-                        isVisible={isVisible}
+                      {/* Smooth fallback overlay to hide image smoothly when returning to layout 1 */}
+                      <motion.div
+                        className="absolute inset-0 bg-[#060606] z-0"
+                        initial={false}
+                        animate={{ opacity: layoutMode === 1 && !isActive && !isMobile ? 1 : 0 }}
+                        transition={{ duration: 0.4 }}
+                        style={{ pointerEvents: "none" }}
                       />
+
+                      {/* WebGL Liquid Distortion & Burn Reveal Overlay */}
+                      {layoutMode === 1 && (
+                        <LiquidDistortionCanvas 
+                          src={item.src} 
+                          isHovered={isHovered} 
+                          isDark={!isActive && !isMobile} 
+                          isRevealed={isActive || isMobile} 
+                          isVisible={isVisible}
+                        />
+                      )}
                     </div>
 
                   </motion.div>
@@ -238,26 +255,41 @@ export default function Home() {
       {/* Low-spacing Footer (Pushed tightly to the bottom) */}
       <footer className="w-full px-6 md:px-12 flex justify-between items-end bg-transparent pb-3 z-10">
         {/* Bottom Left: Title & Dates */}
-        <div className="flex flex-col min-h-[70px] justify-end">
-          <AnimatePresence mode="wait">
+        <div className="flex flex-col min-h-[50px] justify-end overflow-hidden">
+          <AnimatePresence mode="wait" custom={scrollDirection}>
             <motion.div
               key={`text-${((activeIndex % totalImages) + totalImages) % totalImages}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              custom={scrollDirection}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              variants={{
+                initial: {},
+                animate: { transition: { staggerChildren: 0.1 } },
+                exit: { transition: { staggerChildren: 0.1 } }
+              }}
+              className="flex flex-col"
             >
-              <h2 className="text-base md:text-lg font-sans font-bold text-[#111111] leading-tight tracking-wide">
+              <motion.h2 
+                variants={{
+                  initial: (dir) => ({ y: dir === 1 ? 20 : -20, opacity: 0 }),
+                  animate: { y: 0, opacity: 1, transition: { duration: 0.3, ease: "easeOut" } },
+                  exit: (dir) => ({ y: dir === 1 ? -20 : 20, opacity: 0, transition: { duration: 0.3, ease: "easeOut" } })
+                }}
+                className="text-base md:text-lg font-sans font-bold text-[#111111] leading-tight tracking-wide"
+              >
                 {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].title}
-              </h2>
-              {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].subtitle && (
-                <p className="text-xs md:text-sm font-sans font-semibold text-[#111111]/70 leading-snug mt-0.5">
-                  {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].subtitle}
-                </p>
-              )}
-              <p className="text-[10px] md:text-[11px] font-sans tracking-[0.2em] font-semibold text-[#111111]/45 mt-1 md:mt-2 uppercase">
-                {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].date} &mdash; {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].category}
-              </p>
+              </motion.h2>
+              <motion.p 
+                variants={{
+                  initial: (dir) => ({ y: dir === 1 ? 20 : -20, opacity: 0 }),
+                  animate: { y: 0, opacity: 1, transition: { duration: 0.3, ease: "easeOut" } },
+                  exit: (dir) => ({ y: dir === 1 ? -20 : 20, opacity: 0, transition: { duration: 0.3, ease: "easeOut" } })
+                }}
+                className="text-[10px] md:text-[11px] font-sans tracking-[0.2em] font-semibold text-[#111111]/45 mt-1 md:mt-1 uppercase"
+              >
+                {galleryItems[((activeIndex % totalImages) + totalImages) % totalImages].date}
+              </motion.p>
             </motion.div>
           </AnimatePresence>
         </div>
