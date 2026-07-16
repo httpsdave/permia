@@ -95,8 +95,10 @@ export function LoadingScreen() {
   const [phase, setPhase] = useState<'idle' | 'counting' | 'permia' | 'hidden'>('idle');
   const [count, setCount] = useState(0);
   const controls = useAnimation();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const hasVisited = sessionStorage.getItem('permia_visited');
     if (!hasVisited) {
       setShow(true);
@@ -153,9 +155,11 @@ export function LoadingScreen() {
       animate={controls}
     >
       <div className="absolute inset-0 z-0">
-        <Canvas camera={{ position: [0, 0, 1] }} gl={{ powerPreference: "high-performance", antialias: false }} dpr={[1, 1.5]}>
-          <LoadingMesh />
-        </Canvas>
+        {mounted && (
+          <Canvas camera={{ position: [0, 0, 1] }} gl={{ powerPreference: "high-performance", antialias: false }} dpr={[1, 1.5]}>
+            <LoadingMesh />
+          </Canvas>
+        )}
       </div>
       
       <div className="relative z-10 flex flex-col items-center justify-center font-sans tracking-widest text-[#EFF2ED]">

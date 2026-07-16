@@ -50,7 +50,7 @@ export default function Home() {
   
   React.useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1024);
     };
     handleResize(); // initial check
     window.addEventListener('resize', handleResize);
@@ -297,7 +297,7 @@ export default function Home() {
         {/* Bottom Right: Page Indicators & Layout Toggle */}
         <div className="flex items-center gap-24 md:gap-48 lg:gap-64 pb-1">
           {/* Numbers: current index (dim) and total count (bold) - Hidden on mobile */}
-          <div className="hidden md:flex items-baseline gap-12 md:gap-20 text-xs md:text-sm font-sans tracking-widest">
+          <div className="hidden lg:flex items-baseline gap-12 md:gap-20 text-xs md:text-sm font-sans tracking-widest">
             <span className="text-[#111111]/35 font-semibold transition-opacity duration-300">
               {(((activeIndex % totalImages) + totalImages) % totalImages) + 1}
             </span>

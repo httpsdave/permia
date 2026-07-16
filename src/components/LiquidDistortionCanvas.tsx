@@ -264,6 +264,11 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false,
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [hasMovedCursor, setHasMovedCursor] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isHovered) {
@@ -308,8 +313,8 @@ export default function LiquidDistortionCanvas({ src, isHovered, isDark = false,
           });
         }}
       >
-        {needsWebGL && (
-          <Canvas eventSource={containerRef} camera={{ position: [0, 0, 1] }} gl={{ alpha: true, antialias: false, powerPreference: "high-performance" }} dpr={[1, 1.5]}>
+        {mounted && needsWebGL && (
+          <Canvas camera={{ position: [0, 0, 1] }} gl={{ alpha: true, antialias: false, powerPreference: "high-performance" }} dpr={[1, 1.5]}>
             <LiquidMesh 
               src={src} 
               mousePos={mousePos} 
