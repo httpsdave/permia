@@ -24,7 +24,8 @@ export function Header() {
     hoursStr: '--',
     minutesStr: '--',
     secondsStr: '--',
-    ampm: '--'
+    ampm: '--',
+    dateStr: '-- --- ----'
   });
   const [mounted, setMounted] = React.useState(false);
   const [isOpen, setIsOpen] = React.useState(false);
@@ -49,12 +50,19 @@ export function Header() {
       const minutesStr = minutes < 10 ? '0' + minutes : minutes;
       const secondsStr = seconds < 10 ? '0' + seconds : seconds;
       
+      const date = pht.getDate();
+      const monthIndex = pht.getMonth();
+      const year = pht.getFullYear();
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const dateStr = `${date} ${months[monthIndex]} ${year}`;
+      
       return {
         timeStr: `${hours}:${minutesStr}${ampm}`,
         hoursStr: hoursStr,
         minutesStr: minutesStr.toString(),
         secondsStr: secondsStr.toString(),
-        ampm
+        ampm,
+        dateStr
       };
     };
 
@@ -90,7 +98,7 @@ export function Header() {
 
         {/* Location */}
         <div className={`hidden lg:block absolute left-1/2 transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold ${isDarkTheme ? 'text-white/45' : 'text-[#111111]/45'} transition-colors duration-300 uppercase pointer-events-auto cursor-pointer group`}>
-          <FlipText>PHILIPPINES</FlipText>
+          <FlipText>{isClockOpen && mounted ? timeData.dateStr : 'PHILIPPINES'}</FlipText>
         </div>
 
         {/* Desktop Nav links */}
@@ -255,7 +263,7 @@ export function Header() {
                   variants={{
                     hidden: { opacity: 0, y: -60 },
                     visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
-                    exit: { opacity: 0, transition: { duration: 0.2 } }
+                    exit: { opacity: 0, y: 60, transition: { duration: 0.5, ease: [0.55, 0.055, 0.675, 0.19] } }
                   }}
                   className="flex items-center w-full font-mono"
                 >
@@ -279,7 +287,7 @@ export function Header() {
                 variants={{
                   hidden: { opacity: 0, y: -60 },
                   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
-                  exit: { opacity: 0, transition: { duration: 0.2 } }
+                  exit: { opacity: 0, y: 60, transition: { duration: 0.5, ease: [0.55, 0.055, 0.675, 0.19] } }
                 }}
                 className="flex items-center justify-center gap-[6vw] md:gap-[10vw] w-full font-sans text-[38vw] md:text-[35vw] leading-none tracking-tighter z-20"
               >
