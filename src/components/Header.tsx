@@ -64,13 +64,13 @@ export function Header() {
         </Link>
 
         {/* Clock */}
-        <div className={`hidden lg:block absolute left-[26%] lg:left-[28%] transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold ${isDarkTheme ? 'text-white/45' : 'text-[#111111]/45'} transition-colors duration-300`}>
-          {mounted ? timeStr : '--:-- --'}
+        <div className={`hidden lg:block absolute left-[26%] lg:left-[28%] transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold ${isDarkTheme ? 'text-white/45' : 'text-[#111111]/45'} transition-colors duration-300 pointer-events-auto cursor-pointer group`}>
+          <FlipText>{mounted ? timeStr : '--:-- --'}</FlipText>
         </div>
 
         {/* Location */}
-        <div className={`hidden lg:block absolute left-1/2 transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold ${isDarkTheme ? 'text-white/45' : 'text-[#111111]/45'} transition-colors duration-300 uppercase`}>
-          PHILIPPINES
+        <div className={`hidden lg:block absolute left-1/2 transform -translate-x-1/2 text-xs font-sans tracking-widest font-bold ${isDarkTheme ? 'text-white/45' : 'text-[#111111]/45'} transition-colors duration-300 uppercase pointer-events-auto cursor-pointer group`}>
+          <FlipText>PHILIPPINES</FlipText>
         </div>
 
         {/* Desktop Nav links */}
