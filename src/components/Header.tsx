@@ -74,7 +74,7 @@ export function Header() {
         {/* Logo */}
         <Link 
           href="/" 
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); setIsClockOpen(false); }}
           className="text-base font-sans font-bold tracking-widest uppercase pointer-events-auto group"
         >
           <FlipText>permia</FlipText>
@@ -97,9 +97,10 @@ export function Header() {
         <nav className="hidden lg:flex space-x-6 md:space-x-8 items-center text-xs font-sans tracking-widest uppercase font-bold pointer-events-auto">
           <Link 
             href="/" 
+            onClick={() => setIsClockOpen(false)}
             className={`group transition-all duration-300 ${
               pathname === '/' 
-                ? (isDarkTheme ? 'text-white/45 pointer-events-none' : 'text-[#111111]/45 pointer-events-none')
+                ? (isDarkTheme ? `text-white/45 ${!isClockOpen ? 'pointer-events-none' : ''}` : `text-[#111111]/45 ${!isClockOpen ? 'pointer-events-none' : ''}`)
                 : (isDarkTheme ? 'text-white' : 'text-[#111111]')
             }`}
           >
@@ -107,9 +108,10 @@ export function Header() {
           </Link>
           <Link 
             href="/about" 
+            onClick={() => setIsClockOpen(false)}
             className={`group transition-all duration-300 ${
               pathname === '/about' 
-                ? (isDarkTheme ? 'text-white/45 pointer-events-none' : 'text-[#111111]/45 pointer-events-none')
+                ? (isDarkTheme ? `text-white/45 ${!isClockOpen ? 'pointer-events-none' : ''}` : `text-[#111111]/45 ${!isClockOpen ? 'pointer-events-none' : ''}`)
                 : (isDarkTheme ? 'text-white' : 'text-[#111111]')
             }`}
           >
