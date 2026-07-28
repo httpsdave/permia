@@ -209,9 +209,28 @@ export function Header() {
       <AnimatePresence>
         {isClockOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: 0.8, ease: "easeOut" } }}
-            exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeIn" } }}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            variants={{
+              hidden: { y: '100%' },
+              visible: { 
+                y: 0, 
+                transition: { 
+                  duration: 0.7, 
+                  ease: [0.22, 1, 0.36, 1], 
+                  staggerChildren: 0.15, 
+                  delayChildren: 0.4 
+                } 
+              },
+              exit: { 
+                y: '100%', 
+                transition: { 
+                  duration: 0.7, 
+                  ease: [0.55, 0.055, 0.675, 0.19] 
+                } 
+              }
+            }}
             className="fixed inset-0 bg-[#060606] z-40 flex flex-col items-center justify-center overflow-hidden select-none text-white"
           >
             {/* Background Liquid Distortion */}
@@ -229,7 +248,15 @@ export function Header() {
             <div className="relative z-10 w-full h-full flex flex-col items-center justify-center pointer-events-none px-6 md:px-12 mt-[24vh]">
               
               {/* Horizontal Meta Info Overlay */}
-              <div className="flex items-center w-full font-mono z-30 pointer-events-none mb-1 md:mb-2 translate-y-[6vh] md:translate-y-[10vh]">
+              <div className="w-full z-30 pointer-events-none mb-1 md:mb-2 translate-y-[6vh] md:translate-y-[10vh]">
+                <motion.div 
+                  variants={{
+                    hidden: { opacity: 0, y: -60 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+                    exit: { opacity: 0, transition: { duration: 0.2 } }
+                  }}
+                  className="flex items-center w-full font-mono"
+                >
                 {/* Seconds - Left */}
                 <div className="flex-1 text-[15px] md:text-[17px]">
                   <span className="uppercase font-bold tracking-widest">{mounted ? timeData.secondsStr : '--'}</span>
@@ -242,10 +269,18 @@ export function Header() {
                 <div className="flex-1 flex justify-end text-[16px] md:text-[18px]">
                   <span className="normal-case tracking-normal font-medium -translate-x-[80px] md:-translate-x-[120px]">Might be a good time to reach out</span>
                 </div>
+                </motion.div>
               </div>
 
               {/* Huge Time */}
-              <div className="flex items-center justify-center gap-[6vw] md:gap-[10vw] w-full font-sans text-[38vw] md:text-[35vw] leading-none tracking-tighter z-20">
+              <motion.div 
+                variants={{
+                  hidden: { opacity: 0, y: -60 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+                  exit: { opacity: 0, transition: { duration: 0.2 } }
+                }}
+                className="flex items-center justify-center gap-[6vw] md:gap-[10vw] w-full font-sans text-[38vw] md:text-[35vw] leading-none tracking-tighter z-20"
+              >
                 <span>{mounted ? timeData.hoursStr : '--'}</span>
                 
                 {/* Square Colon */}
@@ -255,7 +290,7 @@ export function Header() {
                 </div>
                 
                 <span>{mounted ? timeData.minutesStr : '--'}</span>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         )}
